@@ -1,0 +1,148 @@
+{{define "idx"}}
+<!DOCTYPE html>
+<html lang="ru">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+		<meta name="author" content="Emil Khayrullin">
+		<title>Belka | сервер</title>
+		<link href="https://fonts.googleapis.com/css?family=Noto+Sans&subset=latin,cyrillic" rel="stylesheet">
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+			}
+			body {
+				overflow-x: hidden;
+				font-family: 'Noto Sans', sans-serif;
+			}
+			header {
+				display: block;
+				position: fixed;
+				top: 0;
+				width: 100%;
+				background: rgba(25, 104, 104, 0.79);
+				border-bottom: 1px solid rgba(25, 104, 104, 0.79);
+			}
+			.start {
+				padding: 0 16.2px;
+				display: block;
+				height: 50px;
+				background: white;
+				margin: 0 auto;
+				border: 0;
+				outline:none !important;
+				color: rgba(25, 104, 104, 0.79)
+			}
+			div.body {
+				display: block;
+				width: 1016.2px;
+				margin: 66.2px auto 0 auto;
+			}
+			.big-col {
+				display: inline-block;
+				float: left;
+				overflow-y: hidden;
+				margin-right: 16.2px;
+				width: 585.6px;
+				min-height: calc(100vh - 50px - 34.4px - 1px - 32.4px);
+			}
+			.small-col {
+				display: inline-block;
+				width: 368px;
+				float: left;
+				height: calc(0.38*(100vh - 50px - 12px - 1px - 16.2px));
+			}
+			textarea.code {
+				border: 1px solid hsla(0, 0%, 80%, 0.2);
+				padding: 16.2px;
+				background: hsla(0, 0%, 85%, 0.2) none repeat scroll 0% 0%;
+				color: #000;
+				resize: none;
+				tab-size:4;
+					-moz-tab-size:4;
+					-o-tab-size:4;
+					-webkit-tab-size:4;
+				font-size: 12pt;
+			}
+			div.console {
+				border: 1px solid hsla(0, 0%, 80%, 0.2);
+				padding: 5px;
+				background: hsla(0, 0%, 85%, 0.2) none repeat scroll 0% 0%;
+				color: #000;
+				font-size: 10pt;
+				overflow: hidden;
+			}
+			span.console-message {
+				display: block;
+			}
+			.console-message:before {
+				content: "# ";
+				color: rgba(25, 104, 104, 0.79);
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<img style="padding: 15px 0 0 15px; width: 20px; height: 20px; float: left; visibility: hidden;" class="loading" src="data/ring.svg">
+			<button class="start">СТАРТ</button>
+		</header>
+		<div class="body">
+			<textarea class="code big-col" spellcheck="false" placeholder="Введите свой код..."></textarea>
+			<div class="console small-col"><span class="console-message">Это консоль информации об обработке и о выводе программы.</span></div>
+		</div>
+		<script>
+			var hta = -1;
+			function consoleWrite(a) {
+				var b = document.createElement("span"), c = document.querySelector("div.console");
+				b.classList.add("console-message");
+				b.innerHTML = a;
+				c.appendChild(b);
+				b.scrollIntoView(false);
+			}
+			document.querySelector("textarea.code").addEventListener("keydown", function(e) {
+				if(e.keyCode === 9) {
+					var start = e.target.selectionStart;
+					var end = e.target.selectionEnd;
+					e.target.value = e.target.value.substring(0, start)+"\t"+e.target.value.substring(end);
+					e.target.selectionStart = e.target.selectionEnd = start + 1;
+					e.preventDefault();
+				}
+				if(hta == -1) {
+					hta = e.target.scrollHeight
+				} else if ((hta < e.target.scrollHeight) || (hta > e.target.scrollHeight)) {
+					hta = e.target.scrollHeight;
+					e.target.style.cssText = "min-height: "+hta+"px!important";
+				}
+			});
+			function loadDoc(url, cfunc) {
+				var xhttp = new XMLHttpRequest(), formData = new FormData();
+				formData.append("code", document.querySelector("textarea.code").value);
+				xhttp.onreadystatechange = function() {
+					if (xhttp.readyState == 4 && xhttp.status == 200) {
+						cfunc(xhttp);
+					}
+				};
+				xhttp.open("POST", url, true);
+				xhttp.send(formData);
+			}
+			document.querySelector("button.start").addEventListener("click", function(e) {
+				document.querySelector("img.loading").style.visibility = "visible";
+				loadDoc("/get", function(data) {
+					document.querySelector("img.loading").style.visibility = "hidden";
+					document.querySelector("div.console").innerHTML = "";
+					consoleWrite("Получен код, выполняется обработка...")
+					try {
+						var codeout = JSON.parse(data.responseText);
+						new JBelka(codeout);
+					} catch(e) {
+						consoleWrite((e.name == "SyntaxError")?"Синтаксическая ошибка!":("Ошибка: "+e.name+" | "+e.message))
+					}
+					
+				});
+			});
+		</script>
+		<script src="data/belkaint.js"></script>
+	</body>
+</html>
+{{end}}
