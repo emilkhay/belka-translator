@@ -28,50 +28,62 @@ func main() {
 	}*/
 	var jcode string
 	jcode += "["
-	GetText(gottok, bs, &jcode, &poi, false, false, false, false)
+	GetText(gottok, bs, &jcode, &poi, []bool{false, false, false, false})
 	jcode = jcode[:(len(jcode)-1)]
 	jcode += "]"
 	fmt.Printf("%s", jcode)
 }
-
-func GetText(gottok string, bs []byte, jcode *string, poi *int, ifs_arg bool, whiles_arg bool, ifstatement bool, func_arg bool) {
-	var is_start_if bool = false
-	var is_start_while bool = false
-	for gottok != "#enderror#" {
-    	gottok = GetToken(bs, poi)
+//ifs_arg bool, whiles_arg bool, ifstatement bool, func_arg bool
+func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, flags []bool) {
+	for GotToken != "#enderror#" {
+    	GotToken = GetToken(wetCode, pntInCode)
     	if IsKeyword(gottok) {
-    		if ((gottok == "then")&&!is_start_if)||((gottok == "do")&&!is_start_while) {
-				fmt.Printf("Wrong `then` or `do`")
-				os.Exit(0)
+    		if (GotToken == "then")||((GotToken == "do") {
+				PrintErr("Wrong `then` or `do`")
     		} else if gottok == "if" { // ------if
-				*jcode += "{"
-    			is_start_if = true
-    			gottok2 := GetToken(bs, poi)
-    			*jcode += "\"type\":\"if\",\"cond\":["
-    			for (gottok2 != "then")&&(gottok2 != "#enderror#")&&(gottok2 != "else") {
-    				if gottok2 == "\n" {
-						fmt.Printf("Unvalid `cond`")
-						os.Exit(0)
+    			var BlockStmt string
+				BlockStmt += "{"
+    			GotToken2 := GetToken(wetCode, pntInCode)
+    			BlockStmt += "\"type\":\"if\",\"cond\":["
+    			for (GotToken2 != "then")&&(GotToken2 != "#enderror#")&&IsKeyword(GotToken2) {
+    				if GotToken2 == "\n" {
+						PrintErr("Unvalid `cond`")
     				}
-    				*jcode += ("\""+gottok2+"\",")
-					gottok2 = GetToken(bs, poi)
+    				BlockStmt += ("\""+GotToken2+"\",")
+					GotToken2 = GetToken(wetCode, pntInCode)
     			}
-				if (*jcode)[(len(*jcode)-1)] == ',' {
-					*jcode = (*jcode)[:(len(*jcode)-1)]
+				if BlockStmt[(len(BlockStmt)-1)] == ',' {
+					BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
+				} else {
+					PrintErr("Wrong `cond`")
 				}
-    			*jcode += "],\"body\":["
-				GetText(GetToken(bs, poi), bs, jcode, poi, true, false, true, false)
-				*jcode = (*jcode)[:(len(*jcode)-1)]
-    			*jcode += "],"
-    			*jcode = (*jcode)[:(len(*jcode)-1)]
-    			*jcode += "},"
-    		} else if gottok == "else" { // -----else
+    			BlockStmt += "],\"body\":["
+				GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, []bool(true, false, true))
+				BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
+    			BlockStmt += "],"
+    			//in future: elseif
+    			BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
+    			BlockStmt += "},"
+    			//in future: ...
+    			*jsonCode += BlockStmt
+    		} else if GotToken == "else" { // -----else
+    			//var BlockStmt string
 				if ifs_arg {
-					if (*jcode)[(len(*jcode)-1)] == ',' {
-						*jcode = (*jcode)[:(len(*jcode)-1)]
+					if (*jsonCode)[(len(*jsonCode)-1)] == ',' {
+						*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
+						*jcode += "],\"else\":["
+					} else if (*jsonCode)[(len(*jsonCode)-1)] == '[' {
+						*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
+						*jsonCode += "null,\"else\":["
 					}
-					*jcode += "],\"else\":["
-					GetText(GetToken(bs, poi), bs, jcode, poi, false, false, true, false)
+					GetText(GetToken(wetCode, pntInCode), wetCode, jsonCode, pntInCode, []bool(false, false, true)
+					//
+					//
+					//
+					// я остановился тут
+					// 
+					//
+					//
 				} else {
 					fmt.Printf("Wrong `else`")
 					os.Exit(0)
@@ -93,7 +105,7 @@ func GetText(gottok string, bs []byte, jcode *string, poi *int, ifs_arg bool, wh
 					*jcode = (*jcode)[:(len(*jcode)-1)]
 				}
     			*jcode += "],\"stmt\":["
-				GetText(GetToken(bs, poi), bs, jcode, poi, false, true, false, false)
+				GetText(GetToken(bs, poi), bs, jcode, poi, false, true, false)
 				if (*jcode)[(len(*jcode)-1)] == ',' {
 					*jcode = (*jcode)[:(len(*jcode)-1)]
 				}
@@ -131,7 +143,7 @@ func GetText(gottok string, bs []byte, jcode *string, poi *int, ifs_arg bool, wh
 					gottok2 = GetToken(bs, poi)
     			}
     			*jcode += "\",\"stmt\":["
-				GetText(GetToken(bs, poi), bs, jcode, poi, false, false, false, true)
+				GetText(GetToken(bs, poi), bs, jcode, poi, false, false, false,true) /// обратить внмание на последний TRUE
 				if (*jcode)[(len(*jcode)-1)] == ',' {
 					*jcode = (*jcode)[:(len(*jcode)-1)]
 				}
@@ -169,6 +181,11 @@ func IsKeyword(word string) bool {
 	} else {
 		return false
 	}
+}
+
+func PrintErr(a string) {
+	fmt.Printf("{\"error\":\"%s\"}", a);
+	os.Exit(0)
 }
 
 func GetToken(bs []byte, p *int) string {
