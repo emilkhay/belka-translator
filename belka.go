@@ -28,13 +28,13 @@ func main() {
 	}*/
 	var jcode string
 	jcode += "["
-	GetText(gottok, bs, &jcode, &poi, []bool{false, false, false, false})
+	GetText(gottok, bs, &jcode, &poi, "0000")
 	jcode = jcode[:(len(jcode)-1)]
 	jcode += "]"
 	fmt.Printf("%s", jcode)
 }
-//ifs_arg bool, whiles_arg bool, ifstatement bool, func_arg bool
-func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, flags []bool) {
+// FLAGS: if_wait_else (for else), if_wait_end, if_wait_end, func_wait_end
+func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, flags string) {
 	for GotToken != "#enderror#" {
     	GotToken = GetToken(wetCode, pntInCode)
     	if IsKeyword(gottok) {
@@ -58,7 +58,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 					PrintErr("Wrong `cond`")
 				}
     			BlockStmt += "],\"body\":["
-				GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, []bool(true, false, true))
+				GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, "1100")
 				BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
     			BlockStmt += "],"
     			//in future: elseif
@@ -66,17 +66,10 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
     			BlockStmt += "},"
     			//in future: ...
     			*jsonCode += BlockStmt
-    		} else if GotToken == "else" { // -----else
-    			//var BlockStmt string
-				if ifs_arg {
-					if (*jsonCode)[(len(*jsonCode)-1)] == ',' {
-						*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
-						*jcode += "],\"else\":["
-					} else if (*jsonCode)[(len(*jsonCode)-1)] == '[' {
-						*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
-						*jsonCode += "null,\"else\":["
-					}
-					GetText(GetToken(wetCode, pntInCode), wetCode, jsonCode, pntInCode, []bool(false, false, true)
+    		} else if (GotToken == "else")||(GotToken == "elseif") { // -----else(if)
+    			var BlockStmt string
+				if gg(flags[0]) {
+					switch(GotToken) {
 					//
 					//
 					//
@@ -84,9 +77,22 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 					// 
 					//
 					//
+						case "else":
+							if (*jsonCode)[(len(*jsonCode)-1)] == ',' {
+								*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
+								*jcode += "],\"else\":["
+							} else if (*jsonCode)[(len(*jsonCode)-1)] == '[' {
+								*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
+								*jsonCode += "null,\"else\":["
+							}
+							GetText(GetToken(wetCode, pntInCode), wetCode, jsonCode, pntInCode, "0100")
+						case "elseif":
+							
+					}
+					
+					
 				} else {
-					fmt.Printf("Wrong `else`")
-					os.Exit(0)
+					PrintErr("Wrong `else` or `elseif`")
     			}
     		} else if gottok == "while" { // -----while
 				*jcode += "{"
@@ -355,6 +361,9 @@ func GetToken(bs []byte, p *int) string {
 	return "#enderror#"
 }
 
+func gg(byte a) {
+	return (string(a) == "1") 
+}
 
 func ce(e error) {
 	if e != nil {
