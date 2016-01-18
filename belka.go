@@ -45,7 +45,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 				BlockStmt += "{"
     			GotToken2 := GetToken(wetCode, pntInCode)
     			BlockStmt += "\"type\":\"if\",\"cond\":["
-    			for (GotToken2 != "then")&&(GotToken2 != "#enderror#")&&IsKeyword(GotToken2) {
+    			for (GotToken2 != "then")&&(GotToken2 != "#enderror#")&&!IsKeyword(GotToken2) {
     				if GotToken2 == "\n" {
 						PrintErr("Unvalid `cond`")
     				}
@@ -88,7 +88,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 							}
 							BlockStmt += "{\"cond\":["
 							GotToken2 := GetToken(wetCode, pntInCode)
-							for (GotToken2 != "then")&&(GotToken2 != "#enderror#")&&IsKeyword(GotToken2) {
+							for (GotToken2 != "then")&&(GotToken2 != "#enderror#")&&!IsKeyword(GotToken2) {
 								if GotToken2 == "\n" {
 									PrintErr("Unvalid `cond`")
 								}
@@ -102,10 +102,10 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 							}
     						BlockStmt += "],\"body\":["
 							GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, flags)
-							if BlockStmt[:(len(BlockStmt)-2)] == "]" {
+    						if BlockStmt[(len(BlockStmt)-1)] == ',' {
 								BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
-								BlockStmt += "],"
 							}
+							BlockStmt += "],"
 							BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
 							BlockStmt += "},"
 							//in future: ...
@@ -119,7 +119,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 				BlockStmt += "{"
     			GotToken2 := GetToken(wetCode, pntInCode)
     			BlockStmt += "\"type\":\"while\",\"cond\":["
-    			for (GotToken2 != "do")&&(GotToken2 != "#enderror#") {
+    			for (GotToken2 != "do")&&(GotToken2 != "#enderror#")&&!IsKeyword(GotToken2) {
     				if GotToken2 == "\n" {
 						PrintErr("Wrong `cond`")
     				}
@@ -176,6 +176,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
     			BlockStmt += "],"
     			BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
     			BlockStmt += "},"
+				//in future: ...
     			*jsonCode += BlockStmt
     		}
     	} else if (GotToken != "\n")&&(GotToken != "#enderror#")  {
@@ -183,7 +184,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
     		GotToken2 := GetToken(wetCode, pntInCode)
 			for (GotToken2 != "#enderror#")&&(GotToken2 != "\n") {
 				if IsKeyword(GotToken2) {
-					PrintErr("Unvalid `stmt`")
+					PrintErr("Unvalid `stmt`|`"+GotToken2+"`")
 				}
     			*jsonCode += ("\"" + GotToken2 + "\",")
 				GotToken2 = GetToken(wetCode, pntInCode)
@@ -197,11 +198,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 }
 
 func IsKeyword(word string) bool {
-	if (word == "while")||(word == "if")||(word == "else")||(word == "then")||(word == "end")||(word == "function") {
-		return true
-	} else {
-		return false
-	}
+	return (word == "while")||(word == "for")||(word == "if")||(word == "else")||(word == "elseif")||(word == "then")||(word == "end")||(word == "function")
 }
 
 func PrintErr(a string) {
@@ -222,7 +219,10 @@ func GetToken(bs []byte, p *int) string {
 			*p = t
 			return tok
 		} else if unicode.IsDigit(rune(bs[t])) { // -----numbers
-			for t<l&&unicode.IsDigit(rune(bs[t])) {
+			for t<l&&(unicode.IsDigit(rune(bs[t]))||(bs[t]=='.')) {
+				if len(tok)>0&&(tok[len(tok)-1]=='.')&&(bs[t]=='.') {
+					PrintErr("Wrong number")
+				}
 				tok += string(bs[t])
 				t++
 			}
@@ -310,9 +310,23 @@ func GetToken(bs []byte, p *int) string {
 			*p = t
 			return string(bs[t-1])
 		} else if (rune(bs[t]) == '.') { // -----operator.
-			t++
-			*p = t
-			return string(bs[t-1])
+			if (t+1<l)&&unicode.IsDigit(rune(bs[t+1])) {
+				tok += string(bs[t])
+				t++
+				for t<l&&(unicode.IsDigit(rune(bs[t]))||(bs[t]=='.')) {
+					if (bs[t]=='.') {
+						PrintErr("Wrong number")
+					}
+					tok += string(bs[t])
+					t++
+				}
+				*p = t
+				return tok
+			} else {
+				t++
+				*p = t
+				return string(bs[t-1])
+			}
 		} else if rune(bs[t]) == '[' { // -----multiline string or map[index]
 			if t<l-1 {
 				if (rune(bs[t+1]) == '[') {
@@ -377,7 +391,7 @@ func GetToken(bs []byte, p *int) string {
 }
 
 func gg(a string, b int) bool {
-	return (len([]byte(a))<=b)&&(string(([]byte(a))[b]) == "1") 
+	return (len([]byte(a))>b)&&(string(([]byte(a))[b]) == "1") 
 }
 
 func ce(e error) {
