@@ -148,52 +148,50 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 					PrintErr("Wrong `end`")
 				}
     		} else if gottok == "function" { // -----functions
-				*jcode += "{"
-    			is_start_while = true
-    			gottok2 := GetToken(bs, poi)
-    			*jcode += "\"type\":\"function\",\"name\":\""
-    			for (gottok2 != "(")&&(gottok2 != "#enderror#") {
+    			var BlockStmt string
+				BlockStmt += "{"
+    			GotToken2 := GetToken(wetCode, pntInCode)
+    			BlockStmt += "\"type\":\"function\",\"name\":\""
+    			for (GotToken2 != "(")&&(GotToken2 != "#enderror#") {
     				if gottok2 == "\n" {
-						fmt.Printf("Unvalid `func's name`")
-						os.Exit(0)
+						PrintErr("Unvalid `func's name`")
     				}
-    				*jcode += gottok2
-					gottok2 = GetToken(bs, poi)
+    				BlockStmt += GotToken2
+					GotToken2 = GetToken(wetCode, pntInCode)
     			}
-				gottok2 = GetToken(bs, poi)
-    			*jcode += "\",\"args\":\""
-    			for (gottok2 != ")")&&(gottok2 != "#enderror#") {
-    				if gottok2 == "\n" {
-						fmt.Printf("Unvalid `args`")
-						os.Exit(0)
+				GotToken2 = GetToken(wetCode, pntInCode)
+    			BlockStmt += "\",\"args\":\""
+    			for (GotToken2 != ")")&&(GotToken2 != "#enderror#") {
+    				if GotToken2 == "\n" {
+						PrintErr("Unvalid `args`")
     				}
-    				*jcode += gottok2
-					gottok2 = GetToken(bs, poi)
+    				BlockStmt += GotToken2
+					GotToken2 = GetToken(wetCode, pntInCode)
     			}
-    			*jcode += "\",\"stmt\":["
-				GetText(GetToken(bs, poi), bs, jcode, poi, false, false, false,true) /// обратить внмание на последний TRUE
-				if (*jcode)[(len(*jcode)-1)] == ',' {
-					*jcode = (*jcode)[:(len(*jcode)-1)]
+    			BlockStmt += "\",\"stmt\":["
+				GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, "0001")
+				if BlockStmt[(len(BlockStmt)-1)] == ',' {
+					BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
 				}
-    			*jcode += "],"
-    			*jcode = (*jcode)[:(len(*jcode)-1)]
-    			*jcode += "},"
+    			BlockStmt += "],"
+    			BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
+    			BlockStmt += "},"
+    			*jsonCode += BlockStmt
     		}
-    	} else if (gottok != "\n")&&(gottok != "#enderror#")  {
-    		*jcode += ("[\"" + gottok + "\",")
-    		gottok2 := GetToken(bs, poi)
-			for (gottok2 != "#enderror#")&&(gottok2 != "\n") {
-				if IsKeyword(gottok2) {
-					fmt.Printf("Unvalid `stmt`")
-					os.Exit(0)
+    	} else if (GotToken != "\n")&&(GotToken != "#enderror#")  {
+    		*jsonCode += ("[\"" + GotToken + "\",")
+    		GotToken2 := GetToken(wetCode, pntInCode)
+			for (GotToken2 != "#enderror#")&&(GotToken2 != "\n") {
+				if IsKeyword(GotToken2) {
+					PrintErr("Unvalid `stmt`")
 				}
-    			*jcode += ("\"" + gottok2 + "\",")
-				gottok2 = GetToken(bs, poi)
+    			*jsonCode += ("\"" + GotToken2 + "\",")
+				GotToken2 = GetToken(wetCode, pntInCode)
 			}
-			if (*jcode)[(len(*jcode)-1)] == ',' {
-				*jcode = (*jcode)[:(len(*jcode)-1)]
+			if (*jsonCode)[(len(*jsonCode)-1)] == ',' {
+				*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
 			}
-    		*jcode += "],"
+    		*jsonCode += "],"
 		}
     }
 }
