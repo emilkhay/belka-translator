@@ -1,9 +1,35 @@
+/*
+#
+# Name: Belka Translator
+#
+# Life cycle:
+# 	1. Get data (sequence of chars) from file / Получение данных (последовательность символов) из файла
+# 	2. Generation tokens from the received sequence, recursive analysing it / Генерация токены из полученной последовательности символов, рекурсивный разбор токен
+#	3. Gradual generation of a Simple Lua's JSON AST / Постепенная генерация JSON AST простого Lua
+#
+# Author: Emil Khayrullin/Эмиль Хайруллин
+#		
+#######################################################################
+#                                                                     #
+#  #### ###   ##     ####### ##   ## ####### ##   ## ######  #######  #
+#   ##  ####  ##     ##      ##   ##   ###   ##   ## ##   ## ##       #
+#   ##  ## ## ##     ######  ##   ##   ###   ##   ## ######  ######   #
+#   ##  ##  ####     ##      ##   ##   ###   ##   ## ##  ##  ##       #
+#  ###  ##   ###     ##        ###     ###     ###   ##   ## #######  #
+#                                                                     #
+#######################################################################
+#
+# 1. for/each
+# 2. доработать вложенность
+# -1. optimization AST
+*/
 package main
 
 import (
     "fmt"
     "os"
     "unicode"
+    _"encoding/json"
 )
 
 func main() {
@@ -12,7 +38,6 @@ func main() {
 		os.Exit(0)
 	}
 	//------
-	poi := 0
 	f, err := os.Open(os.Args[1])
 	ce(err)
 	defer f.Close()
@@ -21,19 +46,15 @@ func main() {
 	_, err = f.Read(bs)
 	ce(err)
 	//------
-	var gottok string
-	/*for gottok != "#enderror#" {
-		gottok = GetToken(bs, &poi)
-		fmt.Println(gottok)
-	}*/
 	var jcode string
+	poi := 0
 	jcode += "["
-	GetText(gottok, bs, &jcode, &poi, "0000")
+	GetText("", bs, &jcode, &poi, "00000")
 	jcode = jcode[:(len(jcode)-1)]
 	jcode += "]"
 	fmt.Printf("%s", jcode)
 }
-// FLAGS: if_wait_else (for else), if_wait_end, if_wait_end, func_wait_end
+// FLAGS: if_wait_else (for else), if_wait_end, if_wait_end, func_wait_end, repeat_wait_until
 func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, flags string) {
 	for GotToken != "#enderror#" {
     	GotToken = GetToken(wetCode, pntInCode)
@@ -41,13 +62,11 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
     		if (GotToken == "then")||(GotToken == "do") {
 				PrintErr("Wrong `then` or `do`")
     		} else if GotToken == "if" { // ------if
-    			var BlockStmt string
-				BlockStmt += "{"
+    			BlockStmt := "{\"type\":\"if\",\"cond\":["
     			GotToken2 := GetToken(wetCode, pntInCode)
-    			BlockStmt += "\"type\":\"if\",\"cond\":["
     			for (GotToken2 != "then")&&(GotToken2 != "#enderror#")&&!IsKeyword(GotToken2) {
     				if GotToken2 == "\n" {
-						PrintErr("Unvalid `cond`")
+						PrintErr("Unvalid `cond` in `if` block")
     				}
     				BlockStmt += ("\""+GotToken2+"\",")
 					GotToken2 = GetToken(wetCode, pntInCode)
@@ -55,10 +74,10 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 				if BlockStmt[(len(BlockStmt)-1)] == ',' {
 					BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
 				} else {
-					PrintErr("Wrong `cond`")
+					PrintErr("Empty `cond` in `if` block")
 				}
     			BlockStmt += "],\"body\":["
-				GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, "1100")
+				GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, "11000")
     			BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
     			BlockStmt += "},"
     			//in future: ...
@@ -74,11 +93,11 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 								*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
 								*jsonCode += "null,\"else\":["
 							}
-							GetText(GetToken(wetCode, pntInCode), wetCode, jsonCode, pntInCode, "0100")
+							GetText(GetToken(wetCode, pntInCode), wetCode, jsonCode, pntInCode, "01000")
 							*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
 							*jsonCode += "],"
 						case "elseif":
-    						var BlockStmt string
+    						BlockStmt := "{\"cond\":["
 							if (*jsonCode)[(len(*jsonCode)-1)] == ',' {
 								*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
 								*jsonCode += "],\"elseif\":"
@@ -86,11 +105,10 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 								*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
 								*jsonCode += "null,\"elseif\":"
 							}
-							BlockStmt += "{\"cond\":["
 							GotToken2 := GetToken(wetCode, pntInCode)
 							for (GotToken2 != "then")&&(GotToken2 != "#enderror#")&&!IsKeyword(GotToken2) {
 								if GotToken2 == "\n" {
-									PrintErr("Unvalid `cond`")
+									PrintErr("Unvalid `cond` in `elseif` block")
 								}
 								BlockStmt += ("\""+GotToken2+"\",")
 								GotToken2 = GetToken(wetCode, pntInCode)
@@ -98,10 +116,10 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 							if BlockStmt[(len(BlockStmt)-1)] == ',' {
 								BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
 							} else {
-								PrintErr("Wrong `cond`")
+								PrintErr("Empty `cond` in `elseif` block")
 							}
     						BlockStmt += "],\"body\":["
-							GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, flags)
+							GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode)
     						if BlockStmt[(len(BlockStmt)-1)] == ',' {
 								BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
 							}
@@ -115,13 +133,11 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 					PrintErr("Wrong `else` or `elseif`")
     			}
     		} else if GotToken == "while" { // -----while
-    			var BlockStmt string
-				BlockStmt += "{"
+    			BlockStmt := "{\"type\":\"while\",\"cond\":["
     			GotToken2 := GetToken(wetCode, pntInCode)
-    			BlockStmt += "\"type\":\"while\",\"cond\":["
     			for (GotToken2 != "do")&&(GotToken2 != "#enderror#")&&!IsKeyword(GotToken2) {
     				if GotToken2 == "\n" {
-						PrintErr("Wrong `cond`")
+						PrintErr("Wrong `cond` in `while` block")
     				}
     				BlockStmt += ("\""+GotToken2+"\",")
 					GotToken2 = GetToken(wetCode, pntInCode)
@@ -130,8 +146,8 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 					BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
 				}
     			BlockStmt += "],\"stmt\":["
-				GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, "0010")
-    			if BlockStmt[:(len(BlockStmt)-2)] == "]" {
+				GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, "00100")
+    			if BlockStmt[(len(BlockStmt)-2)] == ']' {
 					if BlockStmt[(len(BlockStmt)-1)] == ',' {
 						BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
 					}
@@ -141,20 +157,59 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
     			BlockStmt += "},"
 				//in future: ...
 				*jsonCode += BlockStmt
+    		} else if GotToken == "repeat" { // -----repeat
+    			BlockStmt := "{\"type\":\"repeat\",\"stmt\":["
+				GetText(GetToken(wetCode, pntInCode), wetCode, &BlockStmt, pntInCode, "00001")
+    			if BlockStmt[(len(BlockStmt)-2)] == ']' {
+					if BlockStmt[(len(BlockStmt)-1)] == ',' {
+						BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
+					}
+					BlockStmt += "],"
+				}
+    			BlockStmt = BlockStmt[:(len(BlockStmt)-1)]
+    			BlockStmt += "},"
+				//in future: ...
+				*jsonCode += BlockStmt
+    		} else if GotToken == "until" {
+    			if gg(flags,4) {
+					if (*jsonCode)[(len(*jsonCode)-1)] == ',' {
+						*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
+					}
+    				*jsonCode += "],\"cond\":["
+    				GotToken2 := GetToken(wetCode, pntInCode)
+					for (GotToken2 != "then")&&(GotToken2 != "#enderror#")&&!IsKeyword(GotToken2) {
+						if GotToken2 == "\n" {
+							PrintErr("Unvalid `cond` in `until` block")
+						}
+						*jsonCode += ("\""+GotToken2+"\",")
+						GotToken2 = GetToken(wetCode, pntInCode)
+					}
+					if (*jsonCode)[(len(*jsonCode)-1)] == ',' {
+						*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
+					}
+					if (*jsonCode)[(len(*jsonCode)-2)] == ']' {
+						if (*jsonCode)[(len(*jsonCode)-1)] == ',' {
+							*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
+						}
+						*jsonCode += "],"
+					}
+					*jsonCode = (*jsonCode)[:(len(*jsonCode)-1)]
+    				*jsonCode += "},"
+    			} else {
+					PrintErr("Wrong `until`")
+    			}
     		} else if GotToken == "end" { // -----end
     			if gg(flags,1)||gg(flags,2)||gg(flags,3) {
-					break
+					return
 				} else {
 					PrintErr("Wrong `end`")
 				}
-    		} else if GotToken == "function" { // -----functions
-    			var BlockStmt string
-				BlockStmt += "{"
+    		} else if GotToken == "function" { // -----function
+    			BlockStmt := "{\"type\":\"func\",\"name\":\""
     			GotToken2 := GetToken(wetCode, pntInCode)
-    			BlockStmt += "\"type\":\"function\",\"name\":\""
     			for (GotToken2 != "(")&&(GotToken2 != "#enderror#") {
     				if GotToken2 == "\n" {
-						PrintErr("Unvalid `func's name`")
+						PrintErr("Unvalid name in `function` block")
     				}
     				BlockStmt += GotToken2
 					GotToken2 = GetToken(wetCode, pntInCode)
@@ -163,7 +218,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
     			BlockStmt += "\",\"args\":\""
     			for (GotToken2 != ")")&&(GotToken2 != "#enderror#") {
     				if GotToken2 == "\n" {
-						PrintErr("Unvalid `args`")
+						PrintErr("Unvalid `args` in `function` block")
     				}
     				BlockStmt += GotToken2
 					GotToken2 = GetToken(wetCode, pntInCode)
@@ -184,7 +239,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
     		GotToken2 := GetToken(wetCode, pntInCode)
 			for (GotToken2 != "#enderror#")&&(GotToken2 != "\n") {
 				if IsKeyword(GotToken2) {
-					PrintErr("Unvalid `stmt`|`"+GotToken2+"`")
+					PrintErr("Unvalid `stmt`")
 				}
     			*jsonCode += ("\"" + GotToken2 + "\",")
 				GotToken2 = GetToken(wetCode, pntInCode)
@@ -198,7 +253,7 @@ func GetText(GotToken string, wetCode []byte, jsonCode *string, pntInCode *int, 
 }
 
 func IsKeyword(word string) bool {
-	return (word == "while")||(word == "for")||(word == "if")||(word == "else")||(word == "elseif")||(word == "then")||(word == "end")||(word == "function")
+	return (word == "while")||(word == "for")||(word == "repeat")||(word == "until")||(word == "in")||(word == "if")||(word == "else")||(word == "elseif")||(word == "then")||(word == "end")||(word == "function")
 }
 
 func PrintErr(a string) {
@@ -280,8 +335,8 @@ func GetToken(bs []byte, p *int) string {
 								t++
 								bs[t] = byte('\n')
 							} else {
-					fmt.Printf("Expected `-`")
-					os.Exit(0)
+								fmt.Printf("Expected `-`")
+								os.Exit(0)
 							}
 						} else {
 							fmt.Printf("Expected `]`")
@@ -391,6 +446,8 @@ func GetToken(bs []byte, p *int) string {
 }
 
 func gg(a string, b int) bool {
+	/*fmt.Println(a)
+	fmt.Println(b)*/
 	return (len([]byte(a))>b)&&(string(([]byte(a))[b]) == "1") 
 }
 
