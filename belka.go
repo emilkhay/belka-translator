@@ -324,16 +324,13 @@ func GetToken(bs []byte, p *int) string {
 								t++
 								bs[t] = byte('\n')
 							} else {
-								fmt.Printf("Expected `-`")
-								os.Exit(0)
+								PrintErr("Expected `-`")
 							}
 						} else {
-							fmt.Printf("Expected `]`")
-							os.Exit(0)
+							PrintErr("Expected `]`")
 						}
 					} else {
-						fmt.Printf("Expected `[`")
-						os.Exit(0)
+						PrintErr("Expected `[`")
 					}
 				} else {
 					for t<l&&(rune(bs[t]) != '\n') {
@@ -390,8 +387,7 @@ func GetToken(bs []byte, p *int) string {
 						tok += "\\\""
 						t++
 					} else {
-						fmt.Printf("Wrong `]`, but it'll expect")
-						os.Exit(0)
+						PrintErr("Wrong `]`, but it'll expect")
 					}
 				} else {
 					for t<l&&(rune(bs[t]) != ']') {
@@ -401,8 +397,7 @@ func GetToken(bs []byte, p *int) string {
 					tok += string(bs[t])
 				}
 			} else {
-				fmt.Printf("Wrong `[`")
-				os.Exit(0)
+				PrintErr("Wrong `[`")
 			}
 			t++
 			*p = t
